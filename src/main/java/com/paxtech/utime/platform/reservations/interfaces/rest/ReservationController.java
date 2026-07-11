@@ -1,5 +1,6 @@
 package com.paxtech.utime.platform.reservations.interfaces.rest;
 
+import com.paxtech.utime.platform.profiles.interfaces.acl.ClientContextFacade;
 import com.paxtech.utime.platform.profiles.interfaces.acl.ProviderContextFacade;
 import com.paxtech.utime.platform.reservations.domain.model.commands.DeleteReservationCommand;
 import com.paxtech.utime.platform.reservations.domain.model.queries.GetAllReservationsQuery;
@@ -9,6 +10,7 @@ import com.paxtech.utime.platform.shared.interfaces.rest.resources.MessageResour
 import com.paxtech.utime.platform.reservations.domain.services.ReservationCommandService;
 import com.paxtech.utime.platform.reservations.domain.services.ReservationQueryService;
 import com.paxtech.utime.platform.reservations.domain.services.TimeSlotQueryService;
+import com.paxtech.utime.platform.reservations.infrastructure.persistence.jpa.repositories.PaymentRepository;
 import com.paxtech.utime.platform.reservations.interfaces.rest.resources.CreateReservationResource;
 import com.paxtech.utime.platform.reservations.interfaces.rest.resources.ReservationDetailsResource;
 import com.paxtech.utime.platform.reservations.interfaces.rest.resources.ReservationResource;
@@ -41,6 +43,8 @@ public class ReservationController {
     private final TimeSlotQueryService timeSlotQueryService;
     private final WorkerContextFacade workerContextFacade;
     private final ServiceQueryService serviceQueryService;
+    private final ClientContextFacade clientContextFacade;
+    private final PaymentRepository paymentRepository;
 
     /**
      * Constructor
@@ -48,13 +52,15 @@ public class ReservationController {
      * @param reservationQueryService The {@link ReservationQueryService} instance
      */
     public ReservationController(ReservationCommandService reservationCommandService,
-                                 ReservationQueryService reservationQueryService, ProviderContextFacade providerContextFacade, TimeSlotQueryService timeSlotQueryService, WorkerContextFacade workerContextFacade, ServiceQueryService serviceQueryService) {
+                                 ReservationQueryService reservationQueryService, ProviderContextFacade providerContextFacade, TimeSlotQueryService timeSlotQueryService, WorkerContextFacade workerContextFacade, ServiceQueryService serviceQueryService, ClientContextFacade clientContextFacade, PaymentRepository paymentRepository) {
         this.reservationCommandService = reservationCommandService;
         this.reservationQueryService = reservationQueryService;
         this.providerContextFacade = providerContextFacade;
         this.timeSlotQueryService = timeSlotQueryService;
         this.workerContextFacade = workerContextFacade;
         this.serviceQueryService = serviceQueryService;
+        this.clientContextFacade = clientContextFacade;
+        this.paymentRepository = paymentRepository;
     }
 
     /**
@@ -105,7 +111,6 @@ public class ReservationController {
     public ResponseEntity<List<ReservationResource>> getAllReservations() {
         var query = new GetAllReservationsQuery();
         var reservations = reservationQueryService.handle(query);
-        if (reservations.isEmpty()) return ResponseEntity.notFound().build();
         var resources = reservations.stream()
                 .map(ReservationResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
@@ -130,7 +135,9 @@ public class ReservationController {
                 providerContextFacade,
                 timeSlotQueryService,
                 workerContextFacade,
-                serviceQueryService
+                serviceQueryService,
+                clientContextFacade,
+                paymentRepository
         );
 
         return ResponseEntity.ok(detailsResource);
@@ -153,7 +160,6 @@ public class ReservationController {
 
         /* 1. Traer todas las reservas */
         var reservations = reservationQueryService.handle(new GetAllReservationsQuery());
-        if (reservations.isEmpty()) return ResponseEntity.notFound().build();
 
         /* 2. Transformar cada una a ReservationDetailsResource */
         var resources = reservations.stream()
@@ -162,7 +168,9 @@ public class ReservationController {
                         providerContextFacade,
                         timeSlotQueryService,
                         workerContextFacade,
-                        serviceQueryService
+                        serviceQueryService,
+                        clientContextFacade,
+                        paymentRepository
                 ))
                 .toList();
 
